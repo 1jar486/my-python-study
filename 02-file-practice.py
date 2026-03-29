@@ -87,7 +87,7 @@ def main():
         # file != os.path.basename(__file__) 判断这个东西是不是脚本本身
         
         if not os.path.isfile(full_path):
-            print(f"跳过文件夹":{file})
+            print(f"跳过文件:{file}")
             continue
         
        # 1. if or file.startswith('.') 排除系统隐藏文件
@@ -101,7 +101,7 @@ def main():
         if ext_upper not in WHITE_LIST_EXTS:
             print(f"跳过非目标文件")
             continue
-        
+
         # 把后缀名的点去掉([1:])，并转成大写(upper())，作为文件夹的名字
         folder_name = ext[1:].upper() 
          # 双重拼接，先把文件夹路径和文件夹名字粘合成完整路径，再把这个路径和文件名粘合成新文件的完整路径
