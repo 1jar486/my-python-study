@@ -1,9 +1,62 @@
-# 这是我在本地用git修改的第一个文件
 import os 
 import shutil
+import sqlite3
+from datetime import datetime
 
-current_path = os.getcwd() # 获取当前路径，让脚本自动识别自己在哪个文件路径
-print(f"我现在的办公地点是：{current_path}")
+# 数据库功能函数
+def init_db(): # 初始化数据库
+    # 1.连接数据库。
+    # 如果当前文件夹下没有'file_history.db'这个数据库文件，就会自动创建一个新的数据库文件。
+    conn = sqlite3.connect('file_history.db') # conn 打开笔记的手
+
+    # 2.创建游标
+    cursor = conn.cursor() # 创建一个游标对象cursor，所有写字打字的操作都靠它
+  
+    # 3.编写SQL指令(SQL是专门跟数据库沟通的语言)
+    # 下面代码的意思是，如果不存在一个名为 move_logs 的表，就创建一个新的表
+    # id:自动增长的数字，给每一行一个唯一的编号。
+    # file_name:文本类型，记录文件的名字。
+    # source_path:文本类型，记录文件原来的位置。
+    # dest_path:文本类型，记录文件搬到哪里了。
+    # move_time:文本类型，记录文件搬家的时间。
+    cursor.execute('''
+                   CREATE TABLE IF NOT EXISTS move_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        file_name TEXT,
+                        source_path TEXT,
+                        dest_path TEXT,
+                        move_time TEXT
+                    )
+                   ''') 
+    # 4.提交保存
+    conn.commit()
+    return conn
+
+# 这个函数的作用是：往表格里填入一条具体的搬家记录
+# 参数说明：文件名，从哪搬，搬到哪
+def log_move(file_name, source, dest): 
+    # 再次建立连接(每次操作数据库前都要握手)
+    conn = sqlite3.connect('file_history.db') 
+    cursor = conn.cursor() 
+
+    # 5.获取当前系统时间，并转成我们看得懂的格式：年-月-日 时:分:秒
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # 6.执行插入指令
+    # 注意这里用了？占位符，这里是为了安全
+    cursor.execute('''
+                   INSERT INTO move_logs (file_name, source_path, dest_path, move_time)
+                   VALUES (?, ?, ?, ?)
+                   ''', (file_name, source, dest, now)) 
+                    # 后面的元组(file_name, source, dest, now)会按照顺序填入到？的位置
+    # 7.确认提交
+    conn.commit()
+
+    # 8.关闭连接
+    conn.close()
+
+    print(f"已记录到数据库：{file_name}")
+
 
 # path = r'C:\Users\Administrator\Desktop\自动整理测试' # 需要操作的文件夹的绝对地址
 # os.listdir()方法会返回一个列表，里面是这个文件夹里面的所有文件和文件夹的名字（不包含路径）
@@ -18,41 +71,67 @@ print(f"我现在的办公地点是：{current_path}")
 # for file in os.listdir(path): 
 #     print(file)
 
-for file in os.listdir(current_path):
+# 主逻辑开始
+def main():
+    init_db()
+    current_path = os.path.dirname(os.path.realpath(__file__)) # 获取当前路径，让脚本自动识别自己在哪个文件路径
+    print(f"我现在的办公地点是：{current_path}")
+    files = os.listdir(current_path)
+    
+    
+    for file in os.listdir(current_path):
+        if os.path.isfile(file) and file!= os.path.basename(__file__):
+        # 如果这个文件是当前正在运行的脚本文件，就跳过它，不管它
+            if file == os.path.basename(__file__):
+               continue
         # os.path.join()拼接完整路径，也就是获取这个文件夹里面的文件或文件夹的绝对地址
         full_path = os.path.join(current_path, file)
-        # 如果这不是一个文件，即它是一个文件夹 os.path.isfile() 判断是否是文件，必须给它完整路径
-        if not os.path.isfile(full_path):
-            continue # 不是文件直接跳过，不管它
-
-        name, ext = os.path.splitext(file) # 分别获取文件名和后缀名
-
-        if not ext:
-            continue # 没有后缀名的文件直接跳过，不管它
+       # 1. 排除系统隐藏文件
+        if file.upper() in ["NTUSER.DAT", "INDEX.DAT"] or file.startswith('.'):
+            print(f"👻 跳过隐藏/系统文件: {file}")
+            continue
         
+       # 2. 排除你的 Python 脚本和数据库账本
+        # 增加 file == "file_history.db" 这个条件
+        if file == os.path.basename(__file__) or file == "02_file_logger.py" or file == "file_history.db":
+            print(f"🛠️ 跳过代码脚本/数据库: {file}")
+            continue
+            
+        full_path = os.path.join(current_path, file)
+        
+        # 3. 排除已经建好的分类文件夹（关键修改，这句打印之前误导了你）
+        if not os.path.isfile(full_path):
+            print(f"📁 发现文件夹，不作处理: {file}")
+            continue
+        
+        name, ext = os.path.splitext(file)
         # 把后缀名的点去掉([1:])，并转成大写(upper())，作为文件夹的名字
         folder_name = ext[1:].upper() 
          # 双重拼接，先把文件夹路径和文件夹名字粘合成完整路径，再把这个路径和文件名粘合成新文件的完整路径
-        new_file_path = os.path.join(current_path, folder_name, file) # 新文件路径，放在以文件后缀名命名的文件夹里
+        target_folder = os.path.join(current_path, folder_name) # 新文件路径，放在以文件后缀名命名的文件夹里
 
-        if os.path.exists(new_file_path): # 如果新文件路径已经存在了，说明这个文件夹里已经有一个同名的文件了
-            new_file_path = os.path.join(current_path, folder_name, name + '_副本' + ext) # 就在文件名后面加个“_副本”来区分，避免覆盖掉原来的文件
+        if not os.path.exists(target_folder): # 如果新文件路径已经存在了，说明这个文件夹里已经有一个同名的文件了
+            os.makedirs(target_folder) # 就在文件名后面加个“_副本”来区分，避免覆盖掉原来的文件
 
-        
-        print(f"原名是：{file} --> 切开的后缀名是：{ext}")
-        
-        
-        if not os.path.exists(os.path.join(current_path, folder_name)): # 如果这个文件夹不存在
-            os.makedirs(os.path.join(current_path, folder_name)) # 就创建一个以后缀名命名的文件夹
+        target_file_path = os.path.join(target_folder, file) # 新文件路径，放在以文件后缀名命名的文件夹里
+
+        # 请替换第 112 到 115 行：
+        count = 1  # 把计数器放到这里，每次遇到重名文件都从 1 开始加
+        while os.path.exists(target_file_path): # 用 while 循环一直查，直到名字不冲突
+            new_name = f"{name}_{count}{ext}"
+            target_file_path = os.path.join(target_folder, new_name)
+            count += 1
 
         old_file_path = os.path.join(current_path, file) # 旧文件路径
         # os.path.join(path, folder_name, file) 
        
-        count = 1
-        new_name = f"{folder_name}_{count}{ext}" # 新文件名，格式是：文件夹名字_数字.后缀名
-        new_file_path = os.path.join(current_path, folder_name, new_name) # 新文件路径，放在以文件后缀名命名的文件夹里
-        count += 1
-        shutil.move(old_file_path, new_file_path) # 搬家
+        
+        shutil.move(old_file_path, target_file_path) # 搬家
         print(f"成功搬运 {file} -> {folder_name}")
+
+        log_move(file, old_file_path, target_file_path )
+
+if __name__ == "__main__":
+    main()
             
 
