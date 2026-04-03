@@ -93,7 +93,7 @@ def get_file_md5(file_path):
         with open(file_path,"rb") as f:
             # 3.循环分块读取，每次读取4kb
             chunk = f.read(4096)
-            # 只要chuck有东西，就一直循环
+            # 只要chunk有东西，就一直循环
             while chunk:
                 md5_hash.update(chunk) # 把刚读取出来的一小块内容"喂给计算器,更新当前的指纹状态
                 chunk = f.read(4096)
@@ -187,13 +187,13 @@ def main():
                     target_file_path = os.path.join(target_folder,new_name)
                     count += 1
                     # 核心排重与冲突逻辑结束
-            try:
-                shutil.move(source_file_path,target_file_path)
-                print(f"成功搬运：{file}->{target_folder}")
-                #记录到数据库
-                log_move(os.path.basename(target_file_path),source_file_path,target_file_path)
-            except Exception as e:
-                print(f"搬运{file}时发生错误：{e}")
+        try:
+            shutil.move(source_file_path,target_file_path)
+            print(f"成功搬运：{file}->{target_folder}")
+            #记录到数据库
+            log_move(os.path.basename(target_file_path),source_file_path,target_file_path)
+        except Exception as e:
+            print(f"搬运{file}时发生错误：{e}")
 
 if __name__ == "__main__":
     main()
