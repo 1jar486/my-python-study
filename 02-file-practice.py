@@ -2,6 +2,7 @@ import os
 import shutil
 import sqlite3
 import hashlib # 新增：python自带的工具箱
+import hashlib # 新增：python自带的工具箱
 from datetime import datetime
 
 # 数据库功能函数
@@ -11,8 +12,10 @@ def init_db(): # 初始化数据库
     # 如果当前文件夹下没有'file_history.db'这个数据库文件，就会自动创建一个新的数据库文件。
     conn = sqlite3.connect('file_history.db') # conn 打开笔记的手
 
+
     # 2.创建游标
     cursor = conn.cursor() # 创建一个游标对象cursor，所有写字打字的操作都靠它
+  
   
     # 3.编写SQL指令(SQL是专门跟数据库沟通的语言)
     # 下面代码的意思是，如果不存在一个名为 move_logs 的表，就创建一个新的表
@@ -38,6 +41,7 @@ def init_db(): # 初始化数据库
 # 参数说明：文件名，从哪搬，搬到哪
 def log_move(file_name, source, dest): 
     '''将文件移动记录写入数据库'''
+   
     try:
     # 再次建立连接(每次操作数据库前都要握手)
         conn = sqlite3.connect('file_history.db') 
@@ -55,15 +59,12 @@ def log_move(file_name, source, dest):
                         # 后面的元组(file_name, source, dest, now)会按照顺序填入到？的位置
         # 7.确认提交
         conn.commit()
-
         # 8.关闭连接
         conn.close()
-
         print(f"已记录到数据库：{file_name}")
     except Exception as e:
         print(f"数据库记录失败：{e}")
-
-
+       
 # path = r'C:\Users\Administrator\Desktop\自动整理测试' # 需要操作的文件夹的绝对地址
 # os.listdir()方法会返回一个列表，里面是这个文件夹里面的所有文件和文件夹的名字（不包含路径）
 
@@ -144,17 +145,15 @@ def main():
         # 把后缀名的点去掉([1:])，并转成大写(upper())，作为文件夹的名字
         folder_name = ext[1:].upper() 
 
+
          # 双重拼接，先把文件夹路径和文件夹名字粘合成完整路径，再把这个路径和文件名粘合成新文件的完整路径
         # 例如：target_folder = r'C:\Users\Administrator\Desktop\自动整理测试\去掉.的大写后缀'  去掉.的大写后缀如：JPG,DOCX,TXT,PNG,MP4等
         # 假设正在处理这个文件 target_folder = r'C:\Users\Administrator\Desktop\自动整理测试\MP4'
         target_folder = os.path.join(current_path, folder_name) # 新文件路径，放在以文件后缀名命名的文件夹里 
-
-        # 如果不存在对应的分类文件夹，就创建它
+        
         if not os.path.exists(target_folder): # 如果新文件路径已经存在了，说明这个文件夹里已经有一个同名的文件了
             os.makedirs(target_folder) # 就在文件名后面加个“_副本”来区分，避免覆盖掉原来的文件
         
-        # target_file_path = r'C:\Users\Administrator\Desktop\自动整理测试\去掉.的大写后缀\文件名'
-        # target_file_path = r'C:\Users\Administrator\Desktop\自动整理测试\MP4\【哲风壁纸】水墨武士-水墨风格.mp4'
         target_file_path = os.path.join(target_folder, file) # 新文件路径，放在以文件后缀名命名的文件夹里
         source_file_path = full_path
         # 旧的重名逻辑处理

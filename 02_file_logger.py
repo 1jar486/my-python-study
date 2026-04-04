@@ -1,7 +1,6 @@
 import sqlite3
-from datetime import datetime
+from datetime import datetime #导入处理时间的工具包，用来记录"什么时候搬了家"
 
-# 数据库功能函数
 def init_db(): # 初始化数据库
     # 1.连接数据库。
     # 如果当前文件夹下没有'file_history.db'这个数据库文件，就会自动创建一个新的数据库文件。
@@ -46,7 +45,7 @@ def log_move(file_name, source, dest):
                    INSERT INTO move_logs (file_name, source_path, dest_path, move_time)
                    VALUES (?, ?, ?, ?)
                    ''', (file_name, source, dest, now)) 
-                    # 后面的元组(file_name, source, dest, now)会按照顺序填入到？的位置
+                        # 后面的元组(file_name, source, dest, now)会按照顺序填入到？的位置
     # 7.确认提交
     conn.commit()
 
@@ -55,6 +54,14 @@ def log_move(file_name, source, dest):
 
     print(f"已记录到数据库：{file_name}")
 
-def main():
-    if __name__ == "__main__":
-        main()
+# 下面是测试部分
+if __name__ == "__main__":
+    # 先建好表(只需要运行一次即可)
+    init_db()
+
+
+
+    
+
+
+    

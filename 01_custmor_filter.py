@@ -35,4 +35,3 @@ elif 5 <= consult_count < 10:
     print("行动建议：发送优惠券，引导转化。")
 elif 0 <= consult_count < 5:
     print("级别：普通路人")
-    print("行动建议：只发自动回复，节省精力。")
