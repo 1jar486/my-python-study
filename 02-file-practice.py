@@ -2,8 +2,8 @@ import os
 import shutil
 import sqlite3
 import hashlib # 新增：python自带的工具箱
-import hashlib # 新增：python自带的工具箱
 from datetime import datetime
+import time # 新增，用于获取当前时间戳和计算时间差
 
 # 数据库功能函数
 def init_db(): # 初始化数据库
@@ -102,6 +102,87 @@ def get_file_md5(file_path):
         return md5_hash.hexdigest()
     except Exception as e:
         print(f"读取文件指纹时出错{file_path}:{e}")
+        return None
+
+def archive_inactive_files(base_path, days_threshold=30):
+    '''
+    核心目标：扫描分类文件夹，将超过指定天数未修改的文件移入 Archive 子文件夹。
+    为初学者解释背后的考量：我们不仅要移动文件，还要处理权限、符号链接和重名等边缘情况。
+    '''
+    print("\n" + "="*40)
+    print("⏳ 开始执行长时间未活动文件归档检查...")
+    
+    # 获取当前操作系统的绝对时间（以秒为单位的浮点数）
+    current_time = time.time()
+    
+    # 计算时间阈值：将天数转换为秒数。30天 * 24小时 * 60分钟 * 60秒
+    seconds_threshold = days_threshold * 24 * 60 * 60
+
+    # 1. 遍历当前目录下的所有项目（寻找分类文件夹，如 JPG, TXT 等）
+    for item_name in os.listdir(base_path):
+        folder_path = os.path.join(base_path, item_name)
+        
+        # 【边界防御】必须是文件夹，且排除隐藏文件夹（点开头）以及归档文件夹本身
+        if not os.path.isdir(folder_path) or item_name.startswith('.') or item_name.upper() == 'ARCHIVE':
+            continue
+            
+        # 此时，我们进入了一个分类文件夹，例如 `base_path/JPG`
+        
+        # 2. 遍历该分类文件夹内的所有文件
+        for file_name in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, file_name)
+            
+            # 【边界防御】跳过子文件夹，我们只处理当前层级的文件
+            if not os.path.isfile(file_path):
+                continue
+                
+            # 【边界防御】跳过符号链接（快捷方式），移动快捷方式可能破坏系统原本的指向
+            if os.path.islink(file_path):
+                continue
+                
+            try:
+                # 3. 获取文件的最后修改时间 (Modification Time)
+                # os.path.getmtime() 返回的也是自1970年以来的秒数
+                last_modified_time = os.path.getmtime(file_path)
+                
+                # 4. 判断逻辑：如果（现在 - 最后修改时间） > 30天的秒数
+                if (current_time - last_modified_time) > seconds_threshold:
+                    
+                    # 确定归档文件夹的位置：分类文件夹下的 Archive 目录
+                    archive_folder_path = os.path.join(folder_path, "Archive")
+                    
+                    # 如果归档文件夹不存在，则自动创建
+                    if not os.path.exists(archive_folder_path):
+                        os.makedirs(archive_folder_path)
+                        print(f"📂 创建了归档目录: {archive_folder_path}")
+                        
+                    # 确定文件的最终目标路径
+                    target_file_path = os.path.join(archive_folder_path, file_name)
+                    
+                    # 5. 【边界防御】处理重名冲突：如果 Archive 里面已经有了同名文件
+                    if os.path.exists(target_file_path):
+                        name, ext = os.path.splitext(file_name)
+                        count = 1
+                        # 循环寻找一个没有被占用的新名字
+                        while os.path.exists(target_file_path):
+                            # 我们在名字里加上 _archived_1 的后缀以示区别
+                            new_name = f"{name}_archived_{count}{ext}"
+                            target_file_path = os.path.join(archive_folder_path, new_name)
+                            count += 1
+                            
+                    # 6. 执行物理移动
+                    shutil.move(file_path, target_file_path)
+                    print(f"📦 已归档老文件: {file_name} -> {item_name}/Archive")
+                    
+                    # 7. 记录到数据库
+                    log_move(os.path.basename(target_file_path), file_path, target_file_path)
+                    
+            except (PermissionError, OSError) as e:
+                # 【边界防御】如果文件正在被别的程序使用，或者没有权限移动，捕获异常并跳过，防止程序死掉
+                print(f"⚠️ 无法归档文件 {file_name} (可能正在被使用或权限不足): {e}")
+            except Exception as e:
+                print(f"❌ 归档 {file_name} 时发生未知错误: {e}")
+        
 
 # 主逻辑开始
 def main():
@@ -193,7 +274,12 @@ def main():
             log_move(os.path.basename(target_file_path),source_file_path,target_file_path)
         except Exception as e:
             print(f"搬运{file}时发生错误：{e}")
-
+    
+    # --- 阶段二：自动化归档（30天过期检查） ---
+    # 调用我们刚刚编写的新功能模块
+    archive_inactive_files(current_path, days_threshold=30)
+    
+    print("\n🎉 所有文件整理与归档任务执行完毕！")
 if __name__ == "__main__":
     main()
             
